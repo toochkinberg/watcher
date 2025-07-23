@@ -39,11 +39,7 @@ ___
 ___
 ## ⚙️ Установка и настройка
 
-Клонируйте этот репозиторий в удобную директорию. Для удобства используйте отдельную папку:
-
-```Bash
-cd <dirname>/watcher
-```
+Клонируйте этот репозиторий в удобную директорию.
 ```Bash
 git clone --branch cron --single-branch https://github.com/toochkinberg/watcher.git
 ```
