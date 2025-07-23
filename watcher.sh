@@ -74,7 +74,7 @@ while IFS= read -r MODEL_BRANCH || [ -n "$MODEL_BRANCH" ]; do
         # Возвращаемся в BASE_REPOS_DIR для клонирования
         cd "$BASE_REPOS_DIR" || { echo "Error: Failed to change directory back to ${BASE_REPOS_DIR}"; continue; }
 
-        git clone --depth 1 --branch "${MODEL_BRANCH}" "$GIT_REPO_URL" "$MODEL_BRANCH" || { echo "Error: Failed to clone repository for branch ${MODEL_BRANCH}"; continue; }
+        git clone --depth 1 --branch "${MODEL_BRANCH}" "$GIT_REPO_SSH" "$MODEL_BRANCH" || { echo "Error: Failed to clone repository for branch ${MODEL_BRANCH}"; continue; }
         cd "$TARGET_MODEL_PATH" || { echo "Error: Failed to change directory to newly cloned ${TARGET_MODEL_PATH}"; continue; }
 
         # После первого клонирования запускаем скрипт
