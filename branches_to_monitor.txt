@@ -1,0 +1,5 @@
+# Имена веток для работы watcher'a
+
+model_1
+model_2
+model_3
