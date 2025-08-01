@@ -13,12 +13,12 @@ fi
 # Перенаправляем весь вывод скрипта в лог-файл с отметкой времени
 exec >> "$LOG_FILE" 2>&1
 
-echo "--- $(date) --- Starting deploy watcher ---"
+echo "--- $(date) --- Starting watcher ---"
 
 # Проверяем, существует ли файл со списком веток
 if [ ! -f "$BRANCHES_FILE" ]; then
     echo "Error: Branches file '${BRANCHES_FILE}' not found. Exiting."
-    echo "--- $(date) --- Deploy watcher finished with errors ---"
+    echo "--- $(date) --- Watcher finished with errors ---"
     exit 1
 fi
 
@@ -35,6 +35,34 @@ while IFS= read -r MODEL_BRANCH || [ -n "$MODEL_BRANCH" ]; do
     if [ -d "$TARGET_MODEL_PATH" ]; then
         echo "Repository for branch '${MODEL_BRANCH}' already exists. Attempting to update."
         cd "$TARGET_MODEL_PATH" || { echo "Error: Failed to change directory to ${TARGET_MODEL_PATH}"; continue; }
+
+        # --- БЛОК GIT STASH ---
+        if [[ $(git status --porcelain) ]]; then
+            echo "Local changes detected in '${MODEL_BRANCH}'. Stashing them to prevent conflicts."
+            
+            # Создаем уникальное сообщение, чтобы потом найти stash
+            STASH_MESSAGE_ID="Auto-stash for branch ${MODEL_BRANCH} before pull on commit $(git rev-parse --short HEAD) [$(date +%Y%m%d%H%M%S)]"
+            git stash push -m "$STASH_MESSAGE_ID"
+
+            if [ $? -ne 0 ]; then
+                echo "Error: Failed to stash local changes. Exiting to prevent data loss."
+                echo "--- $(date) --- Watcher finished with errors ---"
+                exit 1
+            fi
+            
+            # Ищем stash по уникальному сообщению и сохраняем его индекс
+            STASH_REF=$(git stash list | grep "$STASH_MESSAGE_ID" | head -n 1 | awk '{print $1}')
+            
+            if [ -z "$STASH_REF" ]; then
+                echo "Error: Could not find the created stash. Exiting."
+                echo "--- $(date) --- Watcher finished with errors ---"
+                exit 1
+            fi
+
+            echo "Local changes successfully stashed. Reference: ${STASH_REF}"
+        else
+            echo "No local changes detected."
+        fi
 
         # Убедимся, что мы на нужной ветке, прежде чем тянуть изменения
         CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
@@ -69,6 +97,19 @@ while IFS= read -r MODEL_BRANCH || [ -n "$MODEL_BRANCH" ]; do
         else
             echo "No changes detected for branch '${MODEL_BRANCH}'. No update needed."
         fi
+
+        # --- БЛОК GIT STASH (ВОССТАНОВЛЕНИЕ) ---
+        if [ ! -z "$STASH_REF" ]; then
+            echo "Applying stashed changes from ${STASH_REF}..."
+            git stash apply "${STASH_REF}" || { echo "Warning: Failed to apply stashed changes from '${STASH_REF}'. Conflicts may exist. Stash will not be dropped."; }
+            
+            # Если apply был успешным, удаляем stash
+            if [ $? -eq 0 ]; then
+                echo "Applying successful. Dropping stash ${STASH_REF}."
+                git stash drop "${STASH_REF}"
+            fi
+        fi
+
     else
         echo "Repository for branch '${MODEL_BRANCH}' does not exist. Cloning it."
         # Возвращаемся в BASE_REPOS_DIR для клонирования
@@ -91,4 +132,4 @@ while IFS= read -r MODEL_BRANCH || [ -n "$MODEL_BRANCH" ]; do
     echo "" # Красивск
 done < "$BRANCHES_FILE" # Читаем строки из файла BRANCHES_FILE
 
-echo "--- $(date) --- Deploy watcher finished ---"
+echo "--- $(date) --- Watcher finished ---"
